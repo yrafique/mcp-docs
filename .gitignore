@@ -1,0 +1,18 @@
+# ── secrets / local env (never commit) ──
+*.env
+.env
+!*.env.example
+.vault/
+**/vault/
+token*.json
+*.pem
+*.key
+.enabled
+# ── python caches ──
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+# ── os cruft ──
+.DS_Store
+Thumbs.db

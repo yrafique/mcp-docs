@@ -1,0 +1,17 @@
+# Normalize all text to LF in the repo and on checkout. The shell scripts run
+# inside Linux containers, so they MUST stay LF even when cloned on Windows.
+* text=auto eol=lf
+
+# Explicitly LF for the files that would break with CRLF.
+*.sh        text eol=lf
+*.py        text eol=lf
+*.yml       text eol=lf
+*.yaml      text eol=lf
+Dockerfile  text eol=lf
+Makefile    text eol=lf
+
+# Binary assets — never touch line endings.
+*.png       binary
+
+# Large corpus dump ships via Git LFS.
+src/doc_store.sql.gz filter=lfs diff=lfs merge=lfs -text

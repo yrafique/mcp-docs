@@ -1,0 +1,77 @@
+# mcp-docs — self-contained, clone-and-run FULL HYBRID doc search.
+#
+#   docker compose up
+#
+# Brings up three services:
+#   1. docs-db   — ParadeDB (Postgres + pg_search/BM25 + pgvector). On first init it
+#                  auto-seeds the committed corpus (src/doc_store.sql.gz): loads the
+#                  doc_guide/doc_chunk tables (FTS tsv), enables pg_search + vector,
+#                  builds the BM25 index, and adds the embedding column.
+#   2. docs-embed— one-shot: computes the 384-dim bge-small embeddings for all 97.5k
+#                  chunks and builds the HNSW (cosine) index → flips the store to HYBRID.
+#                  Idempotent/resumable (embeds only NULL rows). FIRST RUN ≈ 10–15 min
+#                  on CPU (downloads the ~130 MB model once); the volume persists, so
+#                  every later `up` is instant.
+#   3. mcp-docs  — the MCP server on :9705/mcp, hybrid (BM25 + vector RRF) once embed done.
+#
+# No secrets. The docs-db creds are generic local defaults (mcp/mcp) on an internal
+# compose network; override via the env block if you expose it.
+name: mcp-docs
+
+services:
+  docs-db:
+    image: paradedb/paradedb:latest
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-mcp}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-mcp}
+      POSTGRES_DB: ${POSTGRES_DB:-docs}
+      # store data in a SUBDIR of the mount — version-robust across the PG17→PG18
+      # image change (PG18 images reject a bind/volume directly at /var/lib/postgresql/data).
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - docs-db-data:/var/lib/postgresql/data
+      - ./src/doc_store.sql.gz:/seed/doc_store.sql.gz:ro
+      - ./seed/seed-docs-db.sh:/docker-entrypoint-initdb.d/10-seed-docs.sh:ro
+    healthcheck:
+      # -h localhost forces a TCP check, so it only passes once the REAL server is up
+      # (the initdb/seed phase listens on the socket only) — avoids a seed/embed race.
+      test: ["CMD-SHELL", "pg_isready -h localhost -U mcp -d docs"]
+      interval: 5s
+      timeout: 5s
+      retries: 60
+    restart: unless-stopped
+
+  docs-embed:
+    build:
+      context: ./seed
+      dockerfile: Dockerfile
+    depends_on:
+      docs-db:
+        condition: service_healthy
+    environment:
+      DOCS_DATABASE_URL: postgresql://mcp:mcp@docs-db:5432/docs
+      DOCS_EMBED_CACHE: /models
+      DOCS_EMBED_PARALLEL: "8"
+    volumes:
+      - model-cache:/models
+    restart: "no"   # one-shot; exits 0 when embeddings + HNSW are in place
+
+  mcp-docs:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    depends_on:
+      docs-embed:
+        condition: service_completed_successfully
+    environment:
+      DOCS_DATABASE_URL: postgresql://mcp:mcp@docs-db:5432/docs
+      DOCS_EMBED_CACHE: /models
+    volumes:
+      - model-cache:/models   # reuse the model the embed step already downloaded
+    ports:
+      - "9705:9705"
+    restart: unless-stopped
+
+volumes:
+  docs-db-data:
+  model-cache:

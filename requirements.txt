@@ -1,0 +1,7 @@
+# mcp-docs — Nokia product-doc search MCP (external docs-db Postgres/ParadeDB)
+mcp>=1.0
+fastmcp>=2.13,<2.15
+psycopg[binary]>=3.1
+# query-side embedding for the hybrid (BM25 + vector RRF) ranking. Pulls onnxruntime;
+# without it the server still serves BM25/FTS, just not the vector half of the hybrid.
+fastembed>=0.3
