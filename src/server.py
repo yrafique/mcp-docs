@@ -68,7 +68,7 @@ def _versions(version: str = "", product: str = "all") -> list[str]:
     return [DOCS_NSP_VERSION, DOCS_SROS_VERSION]
 
 
-mcp = FastMCP("mcp-docs-mcp", host="0.0.0.0", port=9710)
+mcp = FastMCP("mcp-docs-mcp", host="0.0.0.0", port=9705)
 
 
 def _q(sql: str, params: tuple = ()) -> list[dict]:
@@ -521,7 +521,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="mcp local-docs MCP server")
     ap.add_argument("transport", nargs="?", default="stdio",
                     choices=["stdio", "sse", "http"])
-    ap.add_argument("--port", type=int, default=9710)
+    ap.add_argument("--port", type=int, default=9705)
     args = ap.parse_args()
 
     # Fail fast on a bad DB connection so misconfig surfaces at startup.

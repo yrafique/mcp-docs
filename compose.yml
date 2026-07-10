@@ -43,8 +43,8 @@ services:
 
   docs-embed:
     build:
-      context: ./seed
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: seed/Dockerfile
     depends_on:
       docs-db:
         condition: service_healthy
@@ -65,9 +65,11 @@ services:
         condition: service_completed_successfully
     environment:
       DOCS_DATABASE_URL: postgresql://mcp:mcp@docs-db:5432/docs
-      DOCS_EMBED_CACHE: /models
-    volumes:
-      - model-cache:/models   # reuse the model the embed step already downloaded
+      # Use the bge-small model baked into this image at build time (Dockerfile:
+      # DOCS_EMBED_CACHE=/app/shared/models). The server embeds the QUERY side of
+      # the hybrid in-process, so it needs the model locally — the pre-embedded
+      # dump means docs-embed downloads nothing, so we must NOT point this at the
+      # empty shared volume or the vector half silently never activates (BM25-only).
     ports:
       - "9705:9705"
     restart: unless-stopped

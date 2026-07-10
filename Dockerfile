@@ -4,11 +4,21 @@
 # No secrets baked in.
 #   Build:  docker build -t mcp-docs .
 #   Run:    docker run --rm -p 9705:9705 --env-file .env mcp-docs
+# Compose restarts the container (restart: unless-stopped), so the entrypoint runs
+# the server directly — no launch/supervisor wrapper.
 FROM python:3.12-slim
 
 RUN apt-get update \
- && apt-get install -y --no-install-recommends bash ca-certificates \
+ && apt-get install -y --no-install-recommends ca-certificates \
  && rm -rf /var/lib/apt/lists/*
+
+# Optional: trust any extra root CA certs placed in ./certs. Empty by default → no-op.
+COPY certs/ /usr/local/share/ca-certificates/extra/
+RUN update-ca-certificates
+ENV SSL_CERT_FILE=/etc/ssl/certs/ca-certificates.crt \
+    REQUESTS_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
+    CURL_CA_BUNDLE=/etc/ssl/certs/ca-certificates.crt \
+    PIP_CERT=/etc/ssl/certs/ca-certificates.crt
 
 WORKDIR /srv
 COPY requirements.txt .
@@ -22,10 +32,8 @@ TextEmbedding(model_name='BAAI/bge-small-en-v1.5', cache_dir='/app/shared/models
  || echo "WARNING: fastembed model download failed — will retry at runtime"
 
 COPY src/ /srv/src/
-COPY launch.sh /srv/launch.sh
 
-ENV PYTHONUNBUFFERED=1 MCP_SRC=/srv/src \
-    DOCS_EMBED_CACHE=/app/shared/models
+ENV PYTHONUNBUFFERED=1 DOCS_EMBED_CACHE=/app/shared/models
 
 EXPOSE 9705
-ENTRYPOINT ["bash", "/srv/launch.sh", "run"]
+ENTRYPOINT ["python3", "/srv/src/server.py", "http", "--port", "9705"]

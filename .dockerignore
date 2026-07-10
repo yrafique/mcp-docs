@@ -5,3 +5,7 @@
 **/__pycache__/
 *.pyc
 .git/
+# large seed dump — bind-mounted into docs-db at runtime, never needed in an image
+src/doc_store.sql.gz
+# marketing/readme assets aren't needed in any image
+docs/

@@ -7,6 +7,10 @@
 token*.json
 *.pem
 *.key
+*.crt
+# ── local-only CA drop-in (keep the dir, never commit a cert) ──
+certs/*
+!certs/.gitkeep
 .enabled
 # ── python caches ──
 __pycache__/

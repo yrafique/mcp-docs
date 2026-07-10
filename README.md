@@ -115,7 +115,7 @@ Runtime config is read from `.env`. Copy `.env.example` to `.env` and adjust as 
 | `DOCS_SROS_VERSION` | SR OS / TiMOS documentation version for `product="sros"` | `26-3` |
 | `DOCS_HYBRID` | Enable the vector half of the hybrid (`0`/`false` = BM25/FTS only) | `1` |
 | `DOCS_EMBED_MODEL` | Query-side embedding model (must match the corpus vectors) | `BAAI/bge-small-en-v1.5` |
-| `DOCS_EMBED_CACHE` | Where the embedding model is cached in-container | `/models` |
+| `DOCS_EMBED_CACHE` | Where the query-side embedding model is cached in-container (baked into the image at build time) | `/app/shared/models` |
 
 Never commit a filled-in `.env`. No real secrets are needed for the bundled stack; if you point `DOCS_DATABASE_URL` at an external ParadeDB, seed it first from `src/doc_store.sql.gz` and supply your own credentials there.
 
@@ -126,10 +126,8 @@ Never commit a filled-in `.env`. No real secrets are needed for the bundled stac
 ```
 mcp-docs/
 ├── Makefile               # make up / make down / make logs
-├── compose.yml            # standalone stack: docs-db + docs-embed + mcp-docs
-├── compose.lab.yml        # variant for an existing shared bridge network
+├── compose.yml            # the stack: docs-db + docs-embed + mcp-docs
 ├── Dockerfile             # MCP server image
-├── launch.sh              # server entrypoint / restart supervisor
 ├── requirements.txt       # server Python dependencies
 ├── .env.example           # copy to .env and adjust
 ├── src/
@@ -148,8 +146,8 @@ The three stack services:
 | Service | Role |
 |---------|------|
 | `docs-db` | ParadeDB; auto-seeds the committed corpus `src/doc_store.sql.gz` on first init |
-| `docs-embed` | one-shot: computes the `bge-small` embeddings + builds the HNSW index (first run ~10-15 min on CPU, downloads the ~130 MB model once into the stack's own volume), then exits |
-| `mcp-docs` | the MCP server on port `9705` |
+| `docs-embed` | one-shot: fills any **missing** `bge-small` embeddings + builds the HNSW index, then exits. The shipped dump is already embedded, so this is a near-instant no-op; it only does real work (downloading the ~130 MB model, ~10-15 min on CPU) if you swap in a corpus-only dump |
+| `mcp-docs` | the MCP server on port `9705`; embeds the query side of the hybrid in-process using the `bge-small` model baked into its image |
 
 ---
 
