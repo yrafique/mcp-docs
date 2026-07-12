@@ -36,6 +36,16 @@ run it on a laptop or a locked-down NOC, and it just works.
 
 ---
 
+## Architecture
+
+![mcp-docs architecture diagram](docs/assets/architecture.png)
+
+Docs are parsed and indexed once per release, offline, into an optimized dump. At boot, the
+container imports the releases it's asked for, and every query runs the full hybrid-plus-reranker
+pipeline inside that one container: no external services, ever.
+
+---
+
 ## Why it's different
 
 | | |
@@ -160,11 +170,11 @@ No credentials, no secrets, no external services. Hand over the container and it
 
 ## Under the hood
 
-![mcp-docs architecture diagram](docs/assets/architecture.png)
-
-- **Engine:** ParadeDB (Postgres + `pg_search` BM25 + `pgvector` HNSW): top-tier lexical + vector search in one embedded store.
-- **Models:** `bge-small` embeddings + `ms-marco-MiniLM-L-12` cross-encoder reranker, both baked in, CPU-only (~19 ms + rerank).
-- **Portable:** everything is bundled and runs on CPU: no GPU, no cloud, no network.
+| | |
+|---|---|
+| **Engine** | ParadeDB (Postgres + `pg_search` BM25 + `pgvector` HNSW): top-tier lexical and vector search in one embedded store. |
+| **Models** | `bge-small` embeddings and an `ms-marco-MiniLM-L-12` cross-encoder reranker, both baked in, CPU-only: about 510 ms per search with reranking, 120 ms without. |
+| **Portable** | Everything is bundled and runs on CPU: no GPU, no cloud, no network. |
 
 <sub>Optional roadmap: a live-NSP mode that auto-detects your running release and routes docs to it (requires network + a read-only token), kept strictly optional so the default stays fully offline.</sub>
 
