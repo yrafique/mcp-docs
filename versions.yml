@@ -1,0 +1,21 @@
+# mcp-docs release registry — which product-doc releases the container builds.
+# Each entry = one schema in the single ParadeDB, seeded at runtime from its dump.
+# Add a release: drop its dump in data/ and add an entry here; set RELEASES to
+# include its `name`. Defaults (RELEASES unset) = nsp-26.4 + sros-26.3.
+default_releases: [nsp-26.4, sros-26.3]
+releases:
+  - name: nsp-26.4
+    product: nsp
+    version: "26.4"
+    schema: nsp_2604
+    dump: data/nsp-26.4.sql.gz
+  - name: sros-26.3
+    product: sros
+    version: "26.3"
+    schema: sros_263
+    dump: data/sros-26.3.sql.gz
+  # - name: nsp-25.11        # example: add when its dump exists
+  #   product: nsp
+  #   version: "25.11"
+  #   schema: nsp_2511
+  #   dump: data/nsp-25.11.sql.gz

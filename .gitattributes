@@ -13,5 +13,5 @@ Makefile    text eol=lf
 # Binary assets — never touch line endings.
 *.png       binary
 
-# Large corpus dump ships via Git LFS.
-src/doc_store.sql.gz filter=lfs diff=lfs merge=lfs -text
+# Large per-release corpus dumps ship via Git LFS.
+data/*.sql.gz filter=lfs diff=lfs merge=lfs -text

@@ -1,0 +1,28 @@
+# mcp-docs — single self-contained container (ParadeDB + MCP server + models + docs).
+# Convenience wrapper around `docker run`; the image is fully self-contained.
+#
+#   make up                                  # from repo root (recommended)
+#   docker compose -f docker/compose.yml up  # equivalent
+#
+# Everything runs in ONE container. RELEASES picks which product-doc releases to
+# build at boot (default: nsp-26.4 + sros-26.3). The named volume persists the
+# built schemas so restarts are instant; `down -v` forces a clean rebuild.
+name: mcp-docs
+
+services:
+  mcp-docs:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    image: mcp-docs:latest
+    environment:
+      # empty = registry default (nsp-26.4 sros-26.3); e.g. RELEASES="nsp-26.4"
+      RELEASES: ${RELEASES:-}
+    ports:
+      - "9705:9705"
+    volumes:
+      - docs-data:/var/lib/postgresql/data   # persist built schemas (optional)
+    restart: unless-stopped
+
+volumes:
+  docs-data:
