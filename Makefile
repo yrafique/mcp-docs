@@ -1,4 +1,4 @@
-.PHONY: up down logs run
+.PHONY: up down clean logs
 
 # Single self-contained container. Run these from the repo root.
 COMPOSE = docker compose -f docker/compose.yml

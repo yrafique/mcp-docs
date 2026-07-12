@@ -118,41 +118,32 @@ def measure(label):
           f"MRR={mrr/n:5.3f}   ({time.time()-t0:4.1f}s)")
 
 
-def _emb_bge_small():
-    server.EMBED_BACKEND = "local"
-    server.VEC_COLUMN = "embedding"
-    server._VEC = None
-    server._embed_query.cache_clear()
-
-
-def _emb_bge_m3():
-    server.EMBED_BACKEND = "ollama"
-    server.VEC_COLUMN = "embedding_m3"
+def _reset_embed():
     server._VEC = None
     server._embed_query.cache_clear()
 
 
 def cfg_baseline():
-    _emb_bge_small(); server.RERANK_ENABLED = False
+    _reset_embed(); server.RERANK_ENABLED = False
 
 
 def cfg_rerank():
-    _emb_bge_small(); server.RERANK_ENABLED = True; server._RERANKER = None; server.PROSE_BIAS = False
+    _reset_embed(); server.RERANK_ENABLED = True; server._RERANKER = None; server.PROSE_BIAS = False
 
 
 def cfg_rerank_routing():
-    _emb_bge_small(); server.RERANK_ENABLED = True; server._RERANKER = None; server.PROSE_BIAS = True
+    _reset_embed(); server.RERANK_ENABLED = True; server._RERANKER = None; server.PROSE_BIAS = True
 
 
-def cfg_rerank_routing_m3():
-    _emb_bge_m3(); server.RERANK_ENABLED = True; server._RERANKER = None; server.PROSE_BIAS = True
-
-
+# NOTE: bge-m3 (Ollama/GPU) and arctic-embed-s were A/B tested here and both
+# underperformed bge-small once rerank+routing is in the pipeline (see the
+# module docstring in src/server.py). The embedder-swap plumbing was removed
+# from server.py after that result; this harness now only measures the
+# shipped bge-small pipeline.
 CONFIGS = {
     "baseline (hybrid, no rerank)": cfg_baseline,
     "+ rerank (ms-marco-L12)": cfg_rerank,
-    "+ rerank + routing (bge-small)": cfg_rerank_routing,
-    "+ rerank + routing + bge-m3 (GPU)": cfg_rerank_routing_m3,
+    "+ rerank + routing (shipped)": cfg_rerank_routing,
 }
 
 if __name__ == "__main__":

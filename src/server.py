@@ -39,18 +39,16 @@ from mcp.server.fastmcp import FastMCP
 # Stage-3 semantic hybrid (optional): if the doc store has populated vector
 # embeddings + the fastembed model is available in-container, search fuses BM25
 # with vector cosine via Reciprocal Rank Fusion. Config via env.
+#
+# bge-small (384-d, fastembed, baked into the image, CPU) is the embedder. A/B
+# tested against bge-m3 (1024-d, Ollama/GPU) and arctic-embed-s: both scored
+# lower on an LLM-judged deep-question eval once the reranker (below) is in the
+# pipeline, and both drop portability (Ollama needs a host GPU service; neither
+# ships in a fastembed-baked image the same way). Not worth it — keep bge-small.
 EMBED_MODEL = os.environ.get("DOCS_EMBED_MODEL", "BAAI/bge-small-en-v1.5")
 EMBED_CACHE = os.environ.get("DOCS_EMBED_CACHE", "/app/shared/models")
 HYBRID_ENABLED = os.environ.get("DOCS_HYBRID", "1") not in ("0", "false", "")
-# Which embedding drives the vector half. Default: bge-small (384-d) baked in the
-# image, embedded in-process. Alternative: bge-m3 (1024-d) served by Ollama on a
-# host GPU — set DOCS_EMBED_BACKEND=ollama + DOCS_VEC_COLUMN=embedding_m3.
-EMBED_BACKEND = os.environ.get("DOCS_EMBED_BACKEND", "local")   # local | ollama
-OLLAMA_URL = os.environ.get("OLLAMA_URL", "http://host.docker.internal:11434")
-OLLAMA_EMBED_MODEL = os.environ.get("DOCS_OLLAMA_EMBED", "bge-m3")
-VEC_COLUMN = os.environ.get("DOCS_VEC_COLUMN", "embedding")
-if VEC_COLUMN not in ("embedding", "embedding_m3", "embedding_arctic"):
-    VEC_COLUMN = "embedding"
+VEC_COLUMN = "embedding"
 # mxbai/bge retrieval query instruction (passages embedded without it at ingest).
 QUERY_PROMPT = "Represent this sentence for searching relevant passages: "
 
@@ -194,8 +192,7 @@ def _has_vectors() -> bool:
         _VEC = False
         if not HYBRID_ENABLED:
             return False
-        embed_ok = True if EMBED_BACKEND == "ollama" else (_get_embedder() is not None)
-        _VEC = bool(embed_ok and _seeded_schemas())
+        _VEC = bool(_get_embedder() is not None and _seeded_schemas())
     return _VEC
 
 
@@ -216,20 +213,8 @@ def _get_embedder():
 
 @functools.lru_cache(maxsize=512)
 def _embed_query(text: str) -> str | None:
-    """Embed a QUERY → pgvector literal. Cached so repeats skip the CPU/GPU embed.
-    bge-m3 (ollama) is symmetric — no query instruction; bge-small uses one."""
-    if EMBED_BACKEND == "ollama":
-        try:
-            import json
-            import urllib.request
-            body = json.dumps({"model": OLLAMA_EMBED_MODEL, "input": [text]}).encode()
-            req = urllib.request.Request(OLLAMA_URL + "/api/embed", body,
-                                         {"Content-Type": "application/json"})
-            vec = json.load(urllib.request.urlopen(req, timeout=30))["embeddings"][0]
-            return "[" + ",".join(f"{x:.6f}" for x in vec) + "]"
-        except Exception as e:  # noqa: BLE001
-            print(f"[docs] ollama embed failed: {type(e).__name__}: {e}", file=sys.stderr)
-            return None
+    """Embed a QUERY (with the retrieval instruction) → pgvector literal. Cached
+    so repeated queries skip the ~20 ms CPU embed."""
     emb = _get_embedder()
     if emb is None:
         return None
