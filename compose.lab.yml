@@ -1,0 +1,41 @@
+# mcp-docs — LAB overlay for the single self-contained container.
+#
+# The new architecture bakes ParadeDB (Postgres + BM25 + pgvector) + the MCP server +
+# the embedder/reranker models + the per-release doc dumps into ONE image. There is no
+# separate docs-db backend anymore. This lab overlay just pins the container onto the
+# lab's external `nsp_mgmt` network at the fixed .67 endpoint the fleet + .mcp.json expect.
+#
+#   docker compose -f compose.lab.yml up -d          # image mcp-docs:latest must exist
+#   docker compose -f compose.lab.yml up -d --build  # (re)build from docker/Dockerfile
+name: mcp-docs
+services:
+  mcp-docs:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+      network: host
+    image: mcp-docs:latest
+    container_name: mcp-docs
+    environment:
+      # empty = registry default (nsp-26.4 + sros-26.3); e.g. RELEASES="nsp-26.4"
+      RELEASES: ${RELEASES:-}
+    ports:
+      - "${DOCS_PORT:-9705}:9705"
+    networks:
+      nsp_mgmt:
+        ipv4_address: 172.20.20.67
+    volumes:
+      - mcp-docs-data:/var/lib/postgresql/data   # persist the built per-release schemas
+    restart: unless-stopped
+    labels:
+      autoheal: "true"
+    healthcheck:
+      test: ["CMD-SHELL", "python3 -c \"import socket; s=socket.socket(); s.settimeout(3); s.connect(('127.0.0.1',9705)); s.close()\""]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 300s   # first boot seeds both releases (import + BM25 + HNSW) ~3-4 min
+networks:
+  nsp_mgmt: { external: true }
+volumes:
+  mcp-docs-data:
