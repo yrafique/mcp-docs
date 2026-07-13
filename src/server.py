@@ -530,8 +530,12 @@ def docs_get_chunk(chunk_id: int, context: int = 1) -> dict:
 
 @mcp.tool()
 def docs_list_guides(product: str = "all", version: str = "") -> dict:
-    """List ingested guides (slug, title, version, pages, chunks) across the
-    matching releases. product : "nsp"/"sros"/"all"; version pins an exact one.
+    """List ingested guides — a guide is one full manual/volume (e.g.
+    'services-configuration-reference'), NOT the individual chunks docs_search
+    returns. Each row: slug, title, version, n_pages, n_chunks, landing_url.
+    product: "nsp"/"sros"/"all"; version pins an exact one (call
+    docs_list_versions first to see valid version strings and which are
+    actually built/ready).
     """
     guides = []
     for rel in _resolve(product, version):
@@ -548,8 +552,13 @@ def docs_list_guides(product: str = "all", version: str = "") -> dict:
 
 @mcp.tool()
 def docs_list_versions() -> dict:
-    """List the product-doc releases this server has built and can search
-    (NSP + SR OS versions), plus which the query defaults to."""
+    """List the product-doc releases this server knows about (from the
+    release registry) and which are actually queryable right now. Each row's
+    `ready` is true once that release's schema has been imported + indexed at
+    boot (see RELEASES env) — false means it's registered but not built for
+    this container, so docs_search/docs_list_guides against that version/
+    product will return nothing. Call this first if a search or guide lookup
+    seems to be missing a release you expect."""
     seeded = _seeded_schemas()
     out = []
     for r in _registry():
