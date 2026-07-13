@@ -7,7 +7,16 @@
 #
 # On boot it starts Postgres, imports the wanted releases into per-version schemas
 # (dynamic — set RELEASES), builds BM25 + HNSW, then serves. No external services.
-FROM paradedb/paradedb:latest
+#
+# Pinned by digest (2026-07-13): an unpinned `:latest` silently picked up a
+# pg_search release whose paradedb.boolean(should => ARRAY[...]) combinator
+# started throwing "unboxing minimum_should_match_ argument failed" on every
+# hybrid search, taking docs_search fully offline with no build-time signal.
+# server.py was fixed to use paradedb.disjunction_max(disjuncts => ARRAY[...])
+# instead (functionally equivalent, confirmed working against this exact
+# image). Bump this digest deliberately, and re-verify docs_search, rather
+# than floating on :latest again.
+FROM paradedb/paradedb@sha256:dbd64f0eb2716b8466afe54b91fec782f4107a8d0e6bd3660b89c88a1ded2ead
 
 USER root
 RUN apt-get update \

@@ -370,7 +370,7 @@ def _bm25_rows(schema: str, query: str, guide: str, cli_mode: str,
                paradedb.score(c.id) AS rank
         FROM doc_chunk c
         JOIN doc_guide dg ON dg.slug = c.guide_slug AND dg.version = c.version
-        WHERE c.id @@@ paradedb.boolean(should => ARRAY[
+        WHERE c.id @@@ paradedb.disjunction_max(disjuncts => ARRAY[
                   paradedb.boost(3.0, paradedb.match('heading', %s)),
                   paradedb.boost(2.0, paradedb.match('topic',   %s)),
                   paradedb.match('body', %s)]){clauses}
