@@ -56,6 +56,14 @@ def main():
     with psycopg.connect(DSN, autocommit=True) as c:
         c.execute("CREATE EXTENSION IF NOT EXISTS pg_search")
         c.execute("CREATE EXTENSION IF NOT EXISTS vector")
+        # A persisted PGDATA volume keeps whatever extension version was
+        # installed at first init even after the image's base is bumped to a
+        # newer paradedb build (extversion only tracks metadata, it does not
+        # auto-follow a newer .so). Without this, a container recreated on top
+        # of an old volume silently keeps running the old, possibly-buggy
+        # pg_search behavior despite shipping a newer binary.
+        c.execute("ALTER EXTENSION pg_search UPDATE")
+        c.execute("ALTER EXTENSION vector UPDATE")
         for name in WANT:
             r = BY_NAME.get(name)
             if not r:
