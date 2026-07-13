@@ -40,9 +40,10 @@ run it on a laptop or a locked-down NOC, and it just works.
 
 ![mcp-docs architecture diagram](docs/assets/architecture.png)
 
-Docs are parsed and indexed once per release, offline, into an optimized dump. At boot, the
-container imports the releases it's asked for, and every query runs the full hybrid-plus-reranker
-pipeline inside that one container: no external services, ever.
+Docs are fetched with headless Chromium (driven by Playwright), then parsed and indexed once per
+release, offline, into an optimized SQL dump. At boot, the single container imports the releases
+it's asked for into ParadeDB, and the co-located MCP server runs the full hybrid-plus-reranker
+pipeline: the database and the server live in the same container, with no external services, ever.
 
 ---
 
@@ -52,7 +53,7 @@ pipeline inside that one container: no external services, ever.
 |---|---|
 | **Completely offline** | Corpus, embedding model, reranker, and database are all baked in. Runs `--network none`, air-gapped. No internet, no Hugging Face, no NSP connection, no credentials. |
 | **One self-contained container** | ParadeDB + the MCP server + models + docs in a single image. `docker run` → ready. Nothing else to stand up. |
-| **Multi-release, on demand** | Each product release lives in its own schema (`nsp_2604`, `sros_263`, …), built at boot from its own optimized dump. Pick what you want with `RELEASES=`; defaults to **NSP 26.4 + SR OS 26.3**. Add a release = drop a dump + one registry line. |
+| **Multi-release, on demand** | Each product release lives in its own schema (`nsp_2604`, `sros_263`, …), built at boot from its own optimized SQL dump. Pick what you want with `RELEASES=`; defaults to **NSP 26.4 + SR OS 26.3**. Add a release = drop a dump + one registry line. |
 | **Genuinely intelligent search** | Not keyword grep. A hybrid **BM25 + semantic-vector** retriever fused by Reciprocal Rank Fusion, re-ordered by a **cross-encoder reranker**, with Nokia-aware query expansion and conceptual-vs-CLI routing. |
 | **Deep-link citations** | Every hit comes back with a **section-precise `deep_url`** that goes straight to the exact page, heading, or CLI command. |
 | **Measured, not vibes** | The retrieval stack was A/B-tested on deep, multi-domain engineer questions and LLM-judged: **+12 quality points** over plain hybrid search. |
@@ -86,13 +87,13 @@ Build it yourself: `make up` (or `docker build -f docker/Dockerfile -t mcp-docs 
 
 ## How it works: from raw docs to intelligent answers
 
-**Ingest pipeline (offline, done once per release → ships as an optimized dump):**
+**Ingest pipeline (offline, done once per release → ships as an optimized SQL dump):**
 
 ```
- Nokia docs ──▶ parse & chunk ──▶ classify & deep-link ──▶ embed & index ──▶ optimized dump
-               section-aware       tag every chunk with       BM25 (ParadeDB)   per-release
-               passages that       page, heading, CLI mode,    + vector (HNSW)   .sql.gz, ready
-               keep their context  mgmt domain, deep URL       baked in          to load at runtime
+ Playwright + Chromium ──▶ parse & chunk ──▶ classify & deep-link ──▶ embed & index ──▶ optimized SQL
+ headless capture of       section-aware     tag every chunk with     BM25 (ParadeDB)   input .sql.gz
+ the Nokia doc portal,     passages that     page, heading, CLI mode,  + vector (HNSW)   per release,
+ offline                   keep their context mgmt domain, deep URL    baked in          load at runtime
 ```
 
 Each chunk keeps *where it came from*: page, heading, whether it's MD-CLI vs classic-CLI, which
